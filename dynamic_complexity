@@ -1,10 +1,11 @@
-function C = DynK(TS_full, win, range)
+function [C,F,D] = DynK(TS_full, win, range)
 % Calculating Dynamic Complexity
 
-%User specifications (example)
-% win = 7; % window lengths (to be played with, default: 7)
-% range = 7; % numer of possible values of the time series, e.g., 6 for 6-point Likert Scale
-% TS_full= [4 5 3 6 2 7 1 4 5 3 6 2 7 1];  % time series as vector
+%User specifications (example)    
+% * win = 7; % window lengths (to be played with, default: 7)
+% * range = 7; % numer of possible values of the time series, e.g., 7 for
+%   7-point Likert Scale. Default: 100. 
+% * TS_full= [4 5 3 6 2 7 1 4 5 3 6 2 7 1];  % time series as vector
 
 % Please cite this reference: 
 % Schiepek, G. & Strunk, G. (2010). The identification of critical
@@ -17,15 +18,27 @@ function C = DynK(TS_full, win, range)
 % Version 1.0 (2020-03-31)
 
 %% Calculations
+% Check input arguments
+if nargin <3
+    range=100;
+    if nargin == 1
+        win = 7;
+    end
+end
+
+if max(TS_full)-min(TS_full) > range
+    disp('Please check range - has to be at least max-min of the values of the time series')
+end
+
 if ismember(0,TS_full) == 1 % move whole time series if values include zero
     TS_full = TS_full + 1;
 end
 
 % extract current window
-if length(TS_full) == win 
+if length(TS_full) == win % can probably be deleted
     m_end = 1;
 else
-    m_end = length(TS_full)-win+1;
+    m_end = length(TS_full)-win+1; % only this needed
 end
 
 for m=1:m_end % start of windows loop
@@ -75,20 +88,21 @@ for m=1:m_end % start of windows loop
     S=(range-1)/(win-1);
     diff_Soll=0;
     diff_Ist=0;
+
     for c=1:win-1
         for d=(c+1):win
             for a=c:(d-1)
                 for b=(a+1):d
                     diff_Soll=diff_Soll+(S*(b-a));
-                    if (sTS(b)-sTS(a)) < (b-a)
+                    if (sTS(b)-sTS(a)) >= 0
                         diff_Ist=diff_Ist + (S*(b-a)-(sTS(b)-sTS(a)));
                     end
                 end
             end
         end
     end
-    
-    D(m) = 1-(diff_Ist/diff_Soll);
+
+    D(m) = 1-diff_Ist/diff_Soll;
 
     clear a b c d diff_Ist diff_Soll S sTS TS
     
@@ -96,15 +110,4 @@ for m=1:m_end % start of windows loop
     C(m) = D(m)*F(m);
     
 end % of windows loop
-
-% %% Plot
-% subplot(1,2,1)
-% plot(TS_full)
-% title('Original Time Series')
-% subplot(1,2,2)
-% plot(C)
-% title('Dynamic Complexity')
-% 
-% fname=strcat('Dynamic Complexity for window size = ',num2str(win),' and range = ', num2str(range));
-% sgtitle(fname)
 end
