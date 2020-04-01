@@ -1,0 +1,110 @@
+function C = DynK(TS_full, win, range)
+% Calculating Dynamic Complexity
+
+%User specifications (example)
+% win = 7; % window lengths (to be played with, default: 7)
+% range = 7; % numer of possible values of the time series, e.g., 6 for 6-point Likert Scale
+% TS_full= [4 5 3 6 2 7 1 4 5 3 6 2 7 1];  % time series as vector
+
+% Please cite this reference: 
+% Schiepek, G. & Strunk, G. (2010). The identification of critical
+% fluctuations and phase transitions in short term and coarse-grained time
+% series—a method for the real-time monitoring of human change processes.
+% Biological Cybernetics, 102(3), 197-207. 
+% DOI: % 10.1007/s00422-009-0362-1.
+
+% Written by K. Viol (2020)
+% Version 1.0 (2020-03-31)
+
+%% Calculations
+if ismember(0,TS_full) == 1 % move whole time series if values include zero
+    TS_full = TS_full + 1;
+end
+
+% extract current window
+if length(TS_full) == win 
+    m_end = 1;
+else
+    m_end = length(TS_full)-win+1;
+end
+
+for m=1:m_end % start of windows loop
+    if length(TS_full) == win 
+        TS = TS_full;
+    else
+        TS=TS_full(m:m+win-1);
+    end
+    
+    %% Fluctuation intensity
+    
+    % split window in intervals of descending or increasing values
+    k=1;
+    intervals(k).TS=TS(1:2);  % first two time points are always one interval
+    csig=sign(TS(2)-TS(1)); % current sign
+    for i=3:win
+        nsig=sign(TS(i)-TS(i-1)); % new sign
+        if (nsig == csig) || (TS(i)-TS(i-1) == 0)
+            intervals(k).TS(i)=TS(i);
+        else
+            k=k+1;
+            intervals(k).TS(i-1)=TS(i-1);
+            intervals(k).TS(i)=TS(i);
+        end
+        csig=nsig;
+    end
+    % delete zeros
+    for i=1:k
+        intervals(i).TS=nonzeros(intervals(i).TS)';
+    end
+    
+    % calculate normalized difference per interval, sum them up
+    for i=1:k
+        intervals(i).M=(max(intervals(i).TS)-min(intervals(i).TS))/(length(intervals(i).TS)-1);
+        M(i)=mean(intervals(i).M);
+    end
+    F_counter=sum(M);
+    F_denom=(range-1)*(win-1);
+    F(m)=F_counter/F_denom;
+    clear intervals F_counter F_denom nsig csig M i k
+    
+    %% Distribution
+    % this calculates the similarity of the distribution in the window to an equal distribution
+    
+    sTS=sort(TS);
+    
+    S=(range-1)/(win-1);
+    diff_Soll=0;
+    diff_Ist=0;
+    for c=1:win-1
+        for d=(c+1):win
+            for a=c:(d-1)
+                for b=(a+1):d
+                    diff_Soll=diff_Soll+(S*(b-a));
+                    if (sTS(b)-sTS(a)) < (b-a)
+                        diff_Ist=diff_Ist + (S*(b-a)-(sTS(b)-sTS(a)));
+                    end
+                end
+            end
+        end
+    end
+    
+    D(m) = 1-(diff_Ist/diff_Soll);
+
+    clear a b c d diff_Ist diff_Soll S sTS TS
+    
+    % calculate the dynamic complexity
+    C(m) = D(m)*F(m);
+    
+end % of windows loop
+
+% %% Plot
+% subplot(1,2,1)
+% plot(TS_full)
+% title('Original Time Series')
+% subplot(1,2,2)
+% plot(C)
+% title('Dynamic Complexity')
+% 
+% fname=strcat('Dynamic Complexity for window size = ',num2str(win),' and range = ', num2str(range));
+% sgtitle(fname)
+end
